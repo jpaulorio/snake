@@ -39,7 +39,9 @@
   (q/text (str "Score: " (dec (count (:position @snake-state)))) 450 25))
 
 (defn- update-food []
-  [(- (* unit-width (rand-int 40)) 500) (- (* unit-width (rand-int 40)) 500)])
+  (let [x (- (* unit-width (rand-int 40)) 500)
+        y (- (* unit-width (rand-int 40)) 475)]
+    [x (if (> y 500) 500 y)]))
 
 (defn- update-food-state [current]
   (assoc current :position (update-food)))
@@ -88,7 +90,7 @@
         [new-head-position]))))
 
 (defn- out-of-bounds? [[x y]]
-  (or (< x -500) (> x 475) (< y -500) (> y 475)))
+  (or (< x -500) (> x 475) (< y -475) (> y 475)))
 
 (defn- did-it-hit-itself? [position]
   (->> (frequencies position)
@@ -152,6 +154,10 @@
   (q/frame-rate (:speed @snake-state))
   (update-scene)
   (q/background 0)
+  (q/fill 0 0 255) 
+  (q/rect 0 25 1000 975)
+  (q/fill 0 0 0)
+  (q/rect 2 27 996 971)
   (q/fill (:color @snake-state) 255 255)
   (let [position (:position @snake-state)]
     (q/with-translation [(/ (q/width) 2)
