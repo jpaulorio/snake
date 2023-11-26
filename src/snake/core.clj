@@ -88,11 +88,7 @@
         [new-head-position]))))
 
 (defn- out-of-bounds? [[x y]]
-  (if (or (< x -500) (> x 500))
-    true
-    (if (or (< y -500) (> y 500))
-      true
-      false)))
+  (or (< x -500) (> x 475) (< y -500) (> y 475)))
 
 (defn- did-it-hit-itself? [position]
   (->> (frequencies position)
@@ -116,7 +112,9 @@
                                      :previous-direction previous-direction
                                      :direction direction
                                      :position (compute-position new-position direction)
-                                     :speed (+ speed (quot (count new-position) initial-speed))})))
+                                     :speed (if (= (mod (count new-position) initial-speed) 0)
+                                              (inc speed)
+                                              speed)})))
 
 (defn- update-scene []
   (let [color (:color @snake-state)
