@@ -4,18 +4,20 @@
             [dynne.sampled-sound :refer [sinusoid
                                          play
                                          ->stereo
-                                         pan]]) 
+                                         pan]])
   (:gen-class))
 
 (def is-paused (atom true))
 
 (def unit-width 25)
 
+(def initial-speed 4)
+
 (def snake-state (atom {:color 200
                         :previous-direction [0 0]
                         :direction [0 0]
                         :position [[0 0]]
-                        :speed 4}))
+                        :speed initial-speed}))
 
 (def base-frequency (/ 0.4 (:speed @snake-state)))
 
@@ -79,7 +81,7 @@
                            (+ (second head) (* unit-width (second direction)))]]
     (if @is-paused
       position
-      (if (> (count position) 1) 
+      (if (> (count position) 1)
         (let [result (cons new-head-position
                            (cons head (drop-last tail)))]
           (vec result))
@@ -91,6 +93,13 @@
     (if (or (< y -500) (> y 500))
       true
       false)))
+
+(defn- did-it-hit-itself? [position]
+  (->> (frequencies position)
+       vals
+       (some #(> % 1))
+       nil?
+       not))
 
 (defn- grow-tail []
   (play eat-sound)
@@ -107,7 +116,7 @@
                                      :previous-direction previous-direction
                                      :direction direction
                                      :position (compute-position new-position direction)
-                                     :speed (inc speed)})))
+                                     :speed (+ speed (quot (count new-position) initial-speed))})))
 
 (defn- update-scene []
   (let [color (:color @snake-state)
@@ -116,7 +125,7 @@
         position (:position @snake-state)
         speed (:speed @snake-state)
         head (first position)]
-    (if (out-of-bounds? head)
+    (if (or (out-of-bounds? head) (did-it-hit-itself? position))
       (swap! is-paused #(not %))
       (let [food-position (:position @food-state)]
         (if (= head food-position)
@@ -144,7 +153,7 @@
 (defn- draw [_]
   (q/frame-rate (:speed @snake-state))
   (update-scene)
-  (q/background 0) 
+  (q/background 0)
   (q/fill (:color @snake-state) 255 255)
   (let [position (:position @snake-state)]
     (q/with-translation [(/ (q/width) 2)
@@ -153,15 +162,22 @@
       (draw-food)))
   (print-score))
 
+(defn- is-legal-move? [pressed-key]
+  (let [new-direction [(get-direction-from-key pressed-key)]
+        current-direction [(:direction @snake-state)]
+        result (some #(not= % 0) (apply map + (apply concat [current-direction new-direction])))] 
+    result))
+
 (defn- key-press [_ input]
   (let [pressed-key (:key input)]
-    (when (and @is-paused (some #{(:key input)} [:up :down :left :right]))
+    (when (and @is-paused (some #{pressed-key} [:up :down :left :right]))
       (swap! is-paused #(not %)))
-    (swap! snake-state update-state {:color (:color @snake-state)
-                                     :previous-direction (:direction @snake-state)
-                                     :direction (get-direction-from-key pressed-key)
-                                     :position (:position @snake-state)
-                                     :speed (:speed @snake-state)}))
+    (when (is-legal-move? pressed-key)
+      (swap! snake-state update-state {:color (:color @snake-state)
+                                       :previous-direction (:direction @snake-state)
+                                       :direction (get-direction-from-key pressed-key)
+                                       :position (:position @snake-state)
+                                       :speed (:speed @snake-state)})))
   (q/redraw))
 
 (q/defsketch snake
