@@ -1,0 +1,20 @@
+{
+  "attributes": {
+    "created": "2023-11-17T00:49:43+00:00",
+    "enabled": true,
+    "expires": null,
+    "notBefore": null,
+    "recoverableDays": 90,
+    "recoveryLevel": "Recoverable",
+    "updated": "2023-11-17T00:49:43+00:00"
+  },
+  "contentType": null,
+  "id": "https://duwp-uat-eus2-uat-kv.vault.azure.net/secrets/opt-in-config-admin-key/04167991d6194ebeb99534963f3da409",
+  "kid": null,
+  "managed": null,
+  "name": "opt-in-config-admin-key",
+  "tags": {
+    "file-encoding": "utf-8"
+  },
+  "value": "N88WF-hgkM4r6hvC2UVvxW@bkbesK9P_2RkqUZvwwD_k_ToM8a"
+}

@@ -7,17 +7,34 @@
                                          pan]])
   (:gen-class))
 
-(def is-paused (atom true))
+(defn- display-game-over-screen []
+  (q/fill 255)
+  (q/rect 400 400 200 100)
+  (q/fill 0)
+  (q/rect 402 402 196 96)
+  (q/fill 255)
+  (q/text-size 10)
+  (q/text-font (q/create-font "Arial-Black" 14 true))
+  (q/text (str "GAME OVER!!!") 445 430)
+  (q/text-font (q/create-font "Arial-Black" 10 true))
+  (q/text (str "DO YOU WANT PLAY AGAIN?") 420 455)
+  (q/text-font (q/create-font "Arial-Black" 12 true))
+  (q/text (str "(Y)es or (N)o") 460 480))
+
+(def is-paused? (atom true))
+(def is-over? (atom false))
 
 (def unit-width 25)
 
 (def initial-speed 4)
 
-(def snake-state (atom {:color 200
-                        :previous-direction [0 0]
-                        :direction [0 0]
-                        :position [[0 0]]
-                        :speed initial-speed}))
+(def snake-initial-state {:color 200
+                          :previous-direction [0 0]
+                          :direction [0 0]
+                          :position [[0 0]]
+                          :speed initial-speed})
+
+(def snake-state (atom snake-initial-state))
 
 (def base-frequency (/ 0.4 (:speed @snake-state)))
 
@@ -60,7 +77,7 @@
         direction (:direction newState)
         position (:position newState)
         speed (:speed newState)]
-    (if (not @is-paused)
+    (if (and (not @is-paused?) (not @is-over?))
       (do (play beep)
           {:color color
            :previous-direction previous-direction
@@ -81,7 +98,7 @@
         tail (drop 1 position)
         new-head-position [(+ (first head) (* unit-width (first direction)))
                            (+ (second head) (* unit-width (second direction)))]]
-    (if @is-paused
+    (if @is-paused?
       position
       (if (> (count position) 1)
         (let [result (cons new-head-position
@@ -125,17 +142,21 @@
         position (:position @snake-state)
         speed (:speed @snake-state)
         head (first position)]
-    (if (or (out-of-bounds? head) (did-it-hit-itself? position))
-      (swap! is-paused #(not %))
-      (let [food-position (:position @food-state)]
-        (if (= head food-position)
-          (do (swap! food-state update-food-state)
-              (grow-tail))
-          (swap! snake-state update-state {:color color
-                                           :previous-direction previous-direction
-                                           :direction direction
-                                           :position (compute-position position direction)
-                                           :speed speed}))))))
+    (if (and (not @is-paused?) (or (out-of-bounds? head) (did-it-hit-itself? position)))
+      (do (swap! is-over? #(do % true))
+          (swap! is-paused? #(do % true))
+          (println "HERE2" @is-over? @is-paused? @snake-state))
+      (when (not @is-over?)
+        (let [food-position (:position @food-state)]
+          (if (= head food-position)
+            (do (swap! food-state update-food-state)
+                (grow-tail))
+            (do (println "HERE42" @is-over? @is-paused? @snake-state)
+                (swap! snake-state update-state {:color color
+                                                 :previous-direction previous-direction
+                                                 :direction direction
+                                                 :position (compute-position position direction)
+                                                 :speed speed}))))))))
 
 (defn- draw-unit [x y]
   (q/rect x y unit-width unit-width))
@@ -154,10 +175,14 @@
   (q/frame-rate (:speed @snake-state))
   (update-scene)
   (q/background 0)
-  (q/fill 0 0 255) 
-  (q/rect 0 25 1000 975)
-  (q/fill 0 0 0)
-  (q/rect 2 27 996 971)
+  (println "IS OVER?" @is-over?)
+  (if (not @is-over?)
+    (do
+      (q/fill 0 0 255)
+      (q/rect 0 25 1000 975)
+      (q/fill 0 0 0)
+      (q/rect 2 27 996 971))
+    (display-game-over-screen))
   (q/fill (:color @snake-state) 255 255)
   (let [position (:position @snake-state)]
     (q/with-translation [(/ (q/width) 2)
@@ -169,19 +194,32 @@
 (defn- is-legal-move? [pressed-key]
   (let [new-direction [(get-direction-from-key pressed-key)]
         current-direction [(:direction @snake-state)]
-        result (some #(not= % 0) (apply map + (apply concat [current-direction new-direction])))] 
+        result (some #(not= % 0) (apply map + (apply concat [current-direction new-direction])))]
     result))
+
+(defn- reset-state []
+  (println "RESET STATE")
+  (swap! snake-state update-state snake-initial-state)
+  (println "HERE5*************" @is-over? @is-paused? @snake-state)
+  (swap! is-paused? #(do % true))
+  (swap! is-over? #(do % false))
+  (println "HERE*************" @is-over? @is-paused? @snake-state))
 
 (defn- key-press [_ input]
   (let [pressed-key (:key input)]
-    (when (and @is-paused (some #{pressed-key} [:up :down :left :right]))
-      (swap! is-paused #(not %)))
-    (when (is-legal-move? pressed-key)
-      (swap! snake-state update-state {:color (:color @snake-state)
-                                       :previous-direction (:direction @snake-state)
-                                       :direction (get-direction-from-key pressed-key)
-                                       :position (:position @snake-state)
-                                       :speed (:speed @snake-state)})))
+    (println "PRESSED KEY" pressed-key)
+    (if @is-over?
+      (when (some #{pressed-key} [:y :Y])
+        (reset-state))
+      (do
+        (when (and @is-paused? (some #{pressed-key} [:up :down :left :right]))
+          (swap! is-paused? #(not %)))
+        (when (is-legal-move? pressed-key)
+          (swap! snake-state update-state {:color (:color @snake-state)
+                                           :previous-direction (:direction @snake-state)
+                                           :direction (get-direction-from-key pressed-key)
+                                           :position (:position @snake-state)
+                                           :speed (:speed @snake-state)})))))
   (q/redraw))
 
 (q/defsketch snake
@@ -193,12 +231,12 @@
   :features [:keep-on-top]
   :middleware [m/fun-mode])
 
-(defn -main [& _]
-  (q/sketch
-   :title "Snake"
-   :size [1000 1000]
-   :setup setup
-   :draw draw
-   :key-pressed key-press
-   :features [:keep-on-top]
-   :middleware [m/fun-mode]))
+;; (defn -main [& _]
+;;   (q/sketch
+;;    :title "Snake"
+;;    :size [1000 1000]
+;;    :setup setup
+;;    :draw draw
+;;    :key-pressed key-press
+;;    :features [:keep-on-top]
+;;    :middleware [m/fun-mode]))
